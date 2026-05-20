@@ -1,0 +1,112 @@
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(plotly)
+library(leaflet)
+
+df_confirmed_global <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv", stringsAsFactors = FALSE)
+df_deaths_global <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv", stringsAsFactors = FALSE)
+
+#Shaping Confirmed data: Transposing dates columns to date column, filter rows with zero cases
+confirmed_global_long <- gather(
+  df_confirmed_global,
+  key = date,
+  value = confirmed,
+  -Province.State,
+  -Country.Region,
+  -Lat,
+  -Long
+)
+
+confirmed_global <- confirmed_global_long %>%
+  filter(confirmed > 0) %>%
+  #mutate(date = as.Date(substr(date, 2, 8), format = "%m.%d.%y")) %>% #not a necessary field
+  rename(Country = Country.Region,
+         Province = Province.State) %>%
+  select(Country, Lat, Long, confirmed) %>%
+  group_by(Country) %>%
+  summarize(latitude = mean(Lat, na.rm = FALSE), longitude = mean(Long, na.rm = FALSE), confirmed = sum(confirmed, na.rm = FALSE)) 
+
+
+#Shaping Deaths data: Transposing dates columns to date column, filter rows with zero cases
+deaths_global_long <- gather(
+  df_deaths_global,
+  key = date,
+  value = deaths,
+  -Province.State,
+  -Country.Region,
+  -Lat,
+  -Long
+)
+
+deaths_global <- deaths_global_long %>%
+  filter(deaths > 0) %>%
+  #mutate(date = as.Date(substr(date, 2, 8), format = "%m.%d.%y")) %>% #we won't need this field
+  rename(Country = Country.Region,
+         Province = Province.State) %>%
+  select(Country, Lat, Long, deaths) %>%
+  group_by(Country) %>%
+  summarize(latitude = mean(Lat, na.rm = FALSE), longitude = mean(Long, na.rm = FALSE), deaths = sum(deaths, na.rm = FALSE))
+
+#Joining confirmed and deaths data frames
+combined_global <- left_join(confirmed_global,deaths_global, by = "Country")
+
+combined_global <- combined_global %>%
+  mutate(
+    latitude_x  = as.numeric(latitude.x),
+    latitude_y  = as.numeric(latitude.y),
+    longitude_x = as.numeric(longitude.x),
+    longitude_y = as.numeric(longitude.y),
+    latitude    = rowMeans(cbind(latitude_x, latitude_y), na.rm = TRUE),
+    longitude   = rowMeans(cbind(longitude_x, longitude_y), na.rm = TRUE)
+  )
+
+#Data set to use in leaflet, including statistical measures (quartiles) for three categories: low, medium, high
+combined_plot <- combined_global %>%
+  select(Country, latitude, longitude, confirmed, deaths)
+
+combined_plot <- combined_plot %>%
+  mutate(
+    conf_cat = cut(
+      confirmed,
+      breaks = quantile(confirmed, probs = c(0, .25, .75, 1), na.rm = TRUE),
+      include.lowest = TRUE,
+      labels = c("Low", "Middle", "High")
+    ),
+    death_cat = cut(
+      deaths,
+      breaks = quantile(deaths, probs = c(0, .25, .75, 1), na.rm = TRUE),
+      include.lowest = TRUE,
+      labels = c("Low", "Middle", "High")
+    )
+  )
+
+#Colors for categories
+color_map <- c(
+  "Low" = "blue",
+  "Middle" = "gray",
+  "High" = "red"
+)
+
+#Global map using leaflet
+combined_plot_clean <- combined_plot %>%
+  filter(!is.na(latitude), !is.na(longitude))
+
+global_map <- leaflet(combined_plot_clean) %>%
+  addProviderTiles("CartoDB.Positron") %>%
+  setView(lng = 0, lat = 20, zoom = 5) %>%
+  addCircleMarkers(
+    lng = ~longitude,
+    lat = ~latitude,
+    radius = ~sqrt(confirmed) / 50,
+    color = ~color_map[conf_cat],
+    stroke = FALSE,
+    fillOpacity = 0.7,
+    label = ~Country,
+    popup = ~paste0(
+      "<b>", Country, "</b><br>",
+      "Confirmed: ", confirmed, "<br>",
+      "Deaths: ", deaths
+    )
+  )
+global_map
