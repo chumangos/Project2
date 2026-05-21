@@ -7,7 +7,6 @@ output: html_document
 ## Objective 1. A world map to gain an appreciation for where the most occurrences of COVID-19 confirmations and deaths are located.
 
 >
-Github Repository: [Visit Chumangos by Haidee Hangis](https://github.com/chumangos/Project2)  
 The interactive map below provides a global overview of COVID‑19 severity by visualizing confirmed cases and deaths for each country. Countries are represented by circle markers positioned at their geographic centroids, with color‑coded categories based on statistical quartiles. Two independent layers; Confirmed Cases and Deaths, allow users to toggle between infection and mortality patterns. Interactive pop‑ups display country‑level totals with a click, while dynamic legends clarify the meaning of each color scale. Together, these features offer a clear, comparative representation of the pandemic’s global impact and facilitate exploration of regional differences of the virus.
 >
 
