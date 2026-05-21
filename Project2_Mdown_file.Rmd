@@ -1,15 +1,17 @@
 ---
-title: "Team-Project2"
+title: "CSIT-165 Initiave, Project 2"
 author: "Haidee Hangis, Lizbeth Ortega"
-date: "2026-05-20"
+date: "2026-05-21"
 output: html_document
 ---
 
-##Objective 1
-> 
-A world map to gain an appreciation for where the most occurrences of COVID-19 confirmations and deaths are located.
+## Objective 1. A world map to gain an appreciation for where the most occurrences of COVID-19 confirmations and deaths are located.
+
 >
-```{r Objetive1, echo=TRUE}
+The interactive map below provides a global overview of COVID‑19 severity by visualizing confirmed cases and deaths for each country. Countries are represented by circle markers positioned at their geographic centroids, with color‑coded categories based on statistical quartiles. Two independent layers—Confirmed Cases and Deaths—allow users to toggle between infection (confirmed cases) and mortality patterns (deaths cases). Interactive pop‑ups display country‑level totals by clicking on them, while dynamic legends clarify the meaning of each color scale.
+>
+
+```{r echo=TRUE}
 library(dplyr)
 library(tidyr)
 library(leaflet)
@@ -17,7 +19,7 @@ library(leaflet)
 df_confirmed_global <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv", stringsAsFactors = FALSE)
 df_deaths_global <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv", stringsAsFactors = FALSE)
 
-#Shaping Confirmed data: Transposing dates columns to date column, filter rows with zero cases
+# --- Confirmed data set transposing dates columns onto a single column---
 confirmed_global_long <- gather(
   df_confirmed_global,
   key = date,
@@ -30,15 +32,15 @@ confirmed_global_long <- gather(
 
 confirmed_global <- confirmed_global_long %>%
   filter(confirmed > 0) %>%
-  #mutate(date = as.Date(substr(date, 2, 8), format = "%m.%d.%y")) %>% #not a necessary field
   rename(Country = Country.Region,
          Province = Province.State) %>%
   select(Country, Lat, Long, confirmed) %>%
   group_by(Country) %>%
-  summarize(latitude = mean(Lat, na.rm = FALSE), longitude = mean(Long, na.rm = FALSE), confirmed = sum(confirmed, na.rm = FALSE)) 
+  summarize(latitude = mean(Lat, na.rm = FALSE),
+            longitude = mean(Long, na.rm = FALSE),
+            confirmed = sum(confirmed, na.rm = FALSE))
 
-
-#Shaping Deaths data: Transposing dates columns to date column, filter rows with zero cases
+# --- Deaths data set trasposing dates columns into a single column for later grouping in countries---
 deaths_global_long <- gather(
   df_deaths_global,
   key = date,
@@ -51,15 +53,16 @@ deaths_global_long <- gather(
 
 deaths_global <- deaths_global_long %>%
   filter(deaths > 0) %>%
-  #mutate(date = as.Date(substr(date, 2, 8), format = "%m.%d.%y")) %>% #we won't need this field
   rename(Country = Country.Region,
          Province = Province.State) %>%
   select(Country, Lat, Long, deaths) %>%
   group_by(Country) %>%
-  summarize(latitude = mean(Lat, na.rm = FALSE), longitude = mean(Long, na.rm = FALSE), deaths = sum(deaths, na.rm = FALSE))
+  summarize(latitude = mean(Lat, na.rm = FALSE),
+            longitude = mean(Long, na.rm = FALSE),
+            deaths = sum(deaths, na.rm = FALSE))
 
-#Joining confirmed and deaths data frames
-combined_global <- left_join(confirmed_global,deaths_global, by = "Country")
+# --- Join both data sets
+combined_global <- left_join(confirmed_global, deaths_global, by = "Country")
 
 combined_global <- combined_global %>%
   mutate(
@@ -71,10 +74,10 @@ combined_global <- combined_global %>%
     longitude   = rowMeans(cbind(longitude_x, longitude_y), na.rm = TRUE)
   )
 
-#Data set to use in leaflet, including statistical measures (quartiles) for three categories: low, medium, high
 combined_plot <- combined_global %>%
   select(Country, latitude, longitude, confirmed, deaths)
 
+# --- Categories to distribute confirmed and deaths into quartiles
 combined_plot <- combined_plot %>%
   mutate(
     conf_cat = cut(
@@ -91,51 +94,93 @@ combined_plot <- combined_plot %>%
     )
   )
 
-#Colors for categories
-color_map <- c(
-  "Low" = "blue",
-  "Middle" = "gray",
-  "High" = "red"
-)
-
-#Global map using leaflet
-#First getting rid of NA rows that don't represent actual locations but cruises ships 
 combined_plot <- combined_plot %>%
   mutate(
     conf_cat = as.character(conf_cat),
     death_cat = as.character(death_cat)
   )
 
-
 combined_plot_clean <- combined_plot %>%
   filter(!is.na(latitude), !is.na(longitude))
-#Categories
-radius_map <- c(
-  "Low" = 5,
-  "Middle" = 10,
-  "High" = 18
+
+#After finding out deaths categories had NA values...
+# Fix NA death categories, this solved the issue of non-showing colors by categories!
+#Decided to keep death_cat rows with NA values, classifying them as "unknown"
+
+combined_plot_clean$death_cat[is.na(combined_plot_clean$death_cat)] <- "Unknown"
+
+# --- Palette functions ---
+palette_conf <- colorFactor(
+  palette = c("blue", "gray", "green"),
+  domain  = combined_plot_clean$conf_cat
 )
 
+palette_death <- colorFactor(
+  palette = c("red", "orange", "purple", "black"),
+  domain  = combined_plot_clean$death_cat
+)
+
+# --- Build the interactive Map :))) with markers and legends---
 global_map <- leaflet(combined_plot_clean) %>%
-  addTiles() %>% #testing
-  #addProviderTiles("CartoDB.Positron") %>%
+  addTiles() %>%
   setView(lng = 0, lat = 20, zoom = 2) %>%
+  
+  # Confirmed layer
   addCircleMarkers(
     lng = ~longitude,
     lat = ~latitude,
-    radius = ~radius_map[conf_cat],   # <-- category-based radius
-    color = ~color_map[conf_cat],     # <-- your blue/gray/red
+    color = ~palette_conf(conf_cat),
+    fillOpacity = 0.6,
     stroke = FALSE,
-    fillOpacity = 0.7,
     label = ~Country,
     popup = ~paste0(
       "<b>", Country, "</b><br>",
       "Confirmed: ", confirmed, "<br>",
       "Deaths: ", deaths
-    )
+    ),
+    group = "Confirmed Cases"
+  ) %>%
+  
+  # Deaths layer
+  addCircleMarkers(
+    lng = ~longitude,
+    lat = ~latitude,
+    color = ~palette_death(death_cat),
+    fillOpacity = 0.6,
+    stroke = FALSE,
+    label = ~Country,
+    popup = ~paste0(
+      "<b>", Country, "</b><br>",
+      "Confirmed: ", confirmed, "<br>",
+      "Deaths: ", deaths
+    ),
+    group = "Deaths"
+  ) %>%
+  
+  # Layer control
+  addLayersControl(
+    overlayGroups = c("Confirmed Cases", "Deaths"),
+    options = layersControlOptions(collapsed = FALSE)
+  ) %>%
+  
+  # Legend for confirmed
+  addLegend(
+    position = "bottomright",
+    pal = palette_conf,
+    values = ~conf_cat,
+    title = "Confirmed Categories",
+    group = "Confirmed Cases"
+  ) %>%
+  
+  # Legend for deaths
+  addLegend(
+    position = "bottomleft",
+    pal = palette_death,
+    values = ~death_cat,
+    title = "Death Categories",
+    group = "Deaths"
   )
 
 global_map
 
 ```
-
