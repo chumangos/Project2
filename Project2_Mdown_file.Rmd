@@ -4,7 +4,7 @@ author: "Haidee Hangis, Lizbeth Ortega"
 date: "2026-05-20"
 output: html_document
 ---
-## Objective 1. A world map to gain an appreciation for where the most occurrences of COVID-19 confirmations and deaths are located.
+## Objective 1. Global Map
 
 >
 The interactive map below provides a global overview of COVID‑19 severity by visualizing confirmed cases and deaths for each country. Countries are represented by circle markers positioned at their geographic centroids, with color‑coded categories based on statistical quartiles. Two independent layers; Confirmed Cases and Deaths, allow users to toggle between infection and mortality patterns. Interactive pop‑ups display country‑level totals with a click, while dynamic legends clarify the meaning of each color scale. Together, these features offer a clear, comparative representation of the pandemic’s global impact and facilitate exploration of regional differences of the virus.
@@ -182,6 +182,62 @@ global_map <- leaflet(combined_plot_clean) %>%
   )
 
 global_map
+
+```
+
+## Objetive 2. Narrowing Down Hot Spots
+
+>
+The table below presents the ten countries with the highest cumulative COVID‑19 confirmed cases and deaths. Rankings are based on total counts aggregated at the country level. By displaying confirmed cases and deaths side‑by‑side, the table enables a clear comparison of countries most affected by the pandemic across both infection burden and mortality impact.
+>
+
+```{r Objective 2, echo=TRUE}
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Start from your data frame
+combined_df <- combined_plot_clean %>%
+  select(Country, confirmed, deaths)
+
+# Top 10 confirmed
+top_confirmed <- combined_df %>%
+  top_n(10, confirmed) %>%
+  arrange(desc(confirmed)) %>%
+  mutate(
+    Rank = row_number(),
+    confirmed = format(confirmed, big.mark = ",", scientific = FALSE)
+  ) %>%
+  select(Rank, Country, confirmed)
+
+# Top 10 deaths
+top_deaths <- combined_df %>%
+  top_n(10, deaths) %>%
+  arrange(desc(deaths)) %>%
+  mutate(
+    Rank = row_number(),
+    deaths = format(deaths, big.mark = ",", scientific = FALSE)
+  ) %>%
+  select(Rank, Country, deaths)
+
+# Combine side-by-side
+top_table <- cbind(
+  top_confirmed,
+  top_deaths %>% select(Country, deaths)
+)
+
+# Rename columns
+colnames(top_table) <- c(
+  "Rank",
+  "Country (Confirmed)",
+  "Confirmed Count",
+  "Country (Deaths)",
+  "Death Count"
+)
+
+# Produce kable table
+kable(top_table, format = "html", caption = "Top Countries by Confirmed Cases and Deaths") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover"))
 
 ```
 

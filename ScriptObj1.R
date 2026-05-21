@@ -1,6 +1,7 @@
 library(dplyr)
 library(tidyr)
 library(leaflet)
+library(knitr)
 
 df_confirmed_global <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_confirmed_global.csv", stringsAsFactors = FALSE)
 df_deaths_global <- read.csv("https://raw.githubusercontent.com/CSSEGISandData/COVID-19/master/csse_covid_19_data/csse_covid_19_time_series/time_series_covid19_deaths_global.csv", stringsAsFactors = FALSE)
@@ -168,3 +169,52 @@ global_map <- leaflet(combined_plot_clean) %>%
   )
 
 global_map
+
+##Kable table
+
+library(dplyr)
+library(knitr)
+library(kableExtra)
+
+# Start from your data frame
+combined_df <- combined_plot_clean %>%
+  select(Country, confirmed, deaths)
+
+# Top 10 confirmed
+top_confirmed <- combined_df %>%
+  top_n(10, confirmed) %>%
+  arrange(desc(confirmed)) %>%
+  mutate(
+    Rank = row_number(),
+    confirmed = format(confirmed, big.mark = ",", scientific = FALSE)
+  ) %>%
+  select(Rank, Country, confirmed)
+
+# Top 10 deaths
+top_deaths <- combined_df %>%
+  top_n(10, deaths) %>%
+  arrange(desc(deaths)) %>%
+  mutate(
+    Rank = row_number(),
+    deaths = format(deaths, big.mark = ",", scientific = FALSE)
+  ) %>%
+  select(Rank, Country, deaths)
+
+# Combine side-by-side
+top_table <- cbind(
+  top_confirmed,
+  top_deaths %>% select(Country, deaths)
+)
+
+# Rename columns
+colnames(top_table) <- c(
+  "Rank",
+  "Country (Confirmed)",
+  "Confirmed Count",
+  "Country (Deaths)",
+  "Death Count"
+)
+
+# Produce kable table
+kable(top_table, format = "html", caption = "Top Countries by Confirmed Cases and Deaths") %>%
+  kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover"))
