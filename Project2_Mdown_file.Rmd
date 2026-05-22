@@ -2,7 +2,9 @@
 title: "Team-Project2"
 author: "Haidee Hangis, Lizbeth Ortega"
 date: "2026-05-20"
-output: html_document
+output: 
+  html_document:
+    toc: true
 ---
 ## Objective 1. Global Map
 
@@ -185,7 +187,7 @@ global_map
 
 ```
 
-## Objetive 2. Narrowing Down Hot Spots
+## Objective 2. Narrowing Down Hot Spots
 
 >
 The table below presents the ten countries with the highest cumulative COVID‑19 confirmed cases and deaths. Rankings are based on total counts aggregated at the country level. By displaying confirmed cases and deaths side‑by‑side, the table enables a clear comparison of countries most affected by the pandemic across both infection burden and mortality impact.
@@ -240,4 +242,11 @@ kable(top_table, format = "html", caption = "Top Countries by Confirmed Cases an
   kable_styling(full_width = FALSE, bootstrap_options = c("striped", "hover"))
 
 ```
+
+## Git log
+```{bash git_log, echo=TRUE, engine.path="C:/Program Files/Git/git-bash.exe"}
+git log --pretty=format:"%nSubject: %s%nAuthor: %aN%nDate: %aD%nBody: %b%n"
+
+```
+
 
