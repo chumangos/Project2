@@ -250,3 +250,120 @@ git log --pretty=format:"%nSubject: %s%nAuthor: %aN%nDate: %aD%nBody: %b%n"
 ```
 
 
+library(tidyverse)
+library(lubridate) 
+library(ggplot2)
+
+#Objective 3 
+#Create two scatterplots, one for californias trajectory for COVID-19 confirmations, and the second one is to show californias top 3 city trajectories for COVID-19 confirmations.
+
+library(readr)
+time_series_covid19_confirmed_US_1_ <- read_csv("~/Downloads/time_series_covid19_confirmed_US (1).csv")
+View(time_series_covid19_confirmed_US_1_)
+library(readr)
+time_series_covid19_confirmed_US_1_ <- read_csv("~/Downloads/time_series_covid19_confirmed_US (1).csv")
+View(time_series_covid19_confirmed_US_1_)
+
+#Load Californias data 
+ca_data <- time_series_covid19_confirmed_US_1_ %>%
+filter(Province_State == "California")
+
+#remove unnecessary columns 
+ca_long <- ca_data %>%
+  select(Admin2, matches("^\\d")) %>%
+  pivot_longer(
+    cols = -Admin2,
+    names_to = "Date",
+    values_to = "Confirmed"
+  )
+
+#fix dates 
+ca_long$Date <- mdy(gsub("X", "", ca_long$Date))
+
+statewide <- ca_long %>%
+  group_by(Date) %>%
+  summarize(Confirmed = sum(Confirmed, na.rm = TRUE))
+
+moderna_second <- as.Date("2021-01-29")
+delta_variant <- as.Date("2021-05-11")
+omicron_variant <- as.Date("2021-11-26")
+
+#First scatterplot with Californias trajectory for COVID-19
+p1 <- ggplot(statewide, aes(Date, Confirmed)) +
+geom_point(color = "steelblue", alpha = 0.6) + geom_vline(xintercept =
+moderna_second,color = "green",linetype = "dashed",size = 1) +
+geom_vline(xintercept = delta_variant,color = "red",linetype =
+"dashed",size = 1) + geom_vline(xintercept = omicron_variant,color =
+"purple",linetype = "dashed",size = 1) + labs(title = "California
+COVID-19 Confirmations",x = "Date",y = "Confirmed Cases") +
+theme_minimal()
+
+#Load top 3 states data 
+top3 <- ca_long %>%
+  group_by(Admin2) %>%
+  summarize(Total = max(Confirmed, na.rm = TRUE)) %>%
+  arrange(desc(Total)) %>%
+  slice(1:3)
+
+top3_data <- ca_long %>%
+  filter(Admin2 %in% top3$Admin2)
+#Second scatterplot with californias top 3 city trajectories for COVID-19 confirmations 
+p2 <- ggplot(top3_data,aes(Date, Confirmed,
+color = Admin2)) + geom_point(alpha = 0.5) + geom_vline(xintercept =
+moderna_second,color = "green",linetype = "dashed") +
+geom_vline(xintercept = delta_variant,color = "red",linetype =
+"dashed") + geom_vline(xintercept = omicron_variant,color =
+"purple",linetype = "dashed") + labs(title = "Top 3 California Counties
+COVID-19 Confirmations",x = "Date",y = "Confirmed Cases",color =
+"County") + theme_minimal()
+
+#Objective 4 
+#We have to create plots for population vs confirmed cases, confirmed cases vs deaths
+
+us_confirmed <- read_csv("~/Downloads/time_series_covid19_confirmed_US (1).csv")
+us_deaths <- read_csv("~/Downloads/time_series_covid19_deaths_US.csv")
+
+#most recent counts
+latest_confirmed_col <- names(us_confirmed)[ncol(us_confirmed)]
+latest_deaths_col <- names(us_deaths)[ncol(us_deaths)]
+
+confirmed_latest <- us_confirmed %>%
+  select(Admin2,
+         Province_State,
+         Confirmed = all_of(latest_confirmed_col))
+
+population_data <- us_deaths %>%
+  select(Admin2,
+         Province_State,
+         Population)
+
+deaths_latest <- us_deaths %>%
+  select(Admin2,
+         Province_State,
+         Deaths = all_of(latest_deaths_col))
+
+combined <- confirmed_latest %>%
+  left_join(population_data,
+            by = c("Admin2", "Province_State")) %>%
+  left_join(deaths_latest,
+            by = c("Admin2", "Province_State")) %>%
+  filter(Population > 0,
+         Confirmed > 0,
+         Deaths > 0)
+  
+#Plot 1 for Population vs Confirmed cases
+g1 <- ggplot(combined,aes(x = log10(Population),y = log10(Confirmed))) +
+geom_point(alpha = 0.5, color = "blue") +
+labs(title = "Population vs Confirmed Cases",x = "Log10 Population",y = "Log10 Confirmed Cases") +
+theme_minimal()
+
+#Plot 2 for Confirmed cases vs Deaths
+g2 <- ggplot(combined,aes(x = log10(Confirmed),y = log10(Deaths))) +
+geom_point(alpha = 0.5, color = "red") +
+labs(title = "Confirmed Cases vs Deaths",x = "Log10 Confirmed Cases",y = "Log10 Deaths") +
+theme_minimal()
+
+p1
+p2
+g1
+g2
